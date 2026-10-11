@@ -9,11 +9,13 @@ export default function Admin({ authed }: { authed: boolean }) {
     if (allowed) api.get('/api/admin/ping').then((r) => setPong(JSON.stringify(r.data)))
   }, [allowed])
 
-  if (!allowed) return <p>Нет доступа</p>
+  if (!allowed) {
+    return <div className="card hero"><h1>Нет доступа</h1><p className="muted">Эта страница доступна только администраторам.</p></div>
+  }
   return (
-    <div>
+    <div className="card">
       <h1>Администрирование</h1>
-      <p>Ответ backend: {pong || '…'}</p>
+      <p className="muted">Ответ backend: <code>{pong || '…'}</code></p>
     </div>
   )
 }

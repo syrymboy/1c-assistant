@@ -1,0 +1,35 @@
+:root {
+  --bg: #f4f6fb; --card: #fff; --text: #1c2433; --muted: #6b7690; --border: #e2e7f0;
+  --accent: #3b5bdb; --accent-hover: #2f4ac0; --accent-soft: #eaefff;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0f1420; --card: #181f30; --text: #e8ecf6; --muted: #93a0bd; --border: #2a3350; --accent: #7c96ff; --accent-hover: #9aafff; --accent-soft: #232d52; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+a { color: inherit; text-decoration: none; }
+.topbar { background: var(--card); border-bottom: 1px solid var(--border); }
+.topbar-inner { max-width: 960px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 8px; }
+.brand { font-weight: 700; font-size: 18px; margin-right: 16px; display: flex; align-items: center; gap: 8px; }
+.brand-dot { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 14px; }
+.nav a { padding: 6px 12px; border-radius: 8px; color: var(--muted); }
+.nav a:hover, .nav a.active { background: var(--accent-soft); color: var(--accent); }
+.spacer { flex: 1; }
+.user { color: var(--muted); font-size: 14px; margin-right: 8px; }
+.btn { border: 0; border-radius: 8px; padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer; background: var(--accent); color: #fff; }
+.btn:hover { background: var(--accent-hover); }
+.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn.ghost:hover { background: var(--accent-soft); }
+.container { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; box-shadow: 0 1px 2px rgba(20,30,60,.04); }
+.card + .card { margin-top: 16px; }
+h1 { margin: 0 0 4px; font-size: 28px; }
+.muted { color: var(--muted); }
+.badge { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 600; margin-right: 6px; }
+.info { display: flex; gap: 24px; flex-wrap: wrap; margin: 16px 0 0; }
+.info div span { display: block; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.placeholder { border: 2px dashed var(--border); border-radius: 14px; padding: 48px 24px; text-align: center; color: var(--muted); margin-top: 16px; }
+.hero { text-align: center; padding: 64px 24px; }
+.hero h1 { font-size: 32px; }
+.hero p { margin: 8px 0 24px; }
+.error { color: #e03131; }

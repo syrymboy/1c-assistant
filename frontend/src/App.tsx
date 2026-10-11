@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Route, Routes } from 'react-router-dom'
+import { NavLink, Route, Routes } from 'react-router-dom'
 import { hasRole, initAuth, keycloak } from './auth'
 import Home from './pages/Home'
 import Admin from './pages/Admin'
@@ -12,23 +12,32 @@ export default function App() {
     initAuth().then((a) => { setAuthed(a); setReady(true) })
   }, [])
 
-  if (!ready) return <p style={{ padding: 24 }}>Загрузка…</p>
+  if (!ready) return <div className="container muted">Загрузка…</div>
+
+  const username = (keycloak.tokenParsed as { preferred_username?: string } | undefined)?.preferred_username
 
   return (
-    <div style={{ fontFamily: 'sans-serif', maxWidth: 720, margin: '0 auto', padding: 24 }}>
-      <header style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 24 }}>
-        <strong>Ассистент 1С</strong>
-        <Link to="/">Главная</Link>
-        {authed && hasRole('admin') && <Link to="/admin">Админ</Link>}
-        <span style={{ flex: 1 }} />
-        {authed
-          ? <button onClick={() => keycloak.logout({ redirectUri: window.location.origin })}>Выйти</button>
-          : <button onClick={() => keycloak.login()}>Войти</button>}
+    <>
+      <header className="topbar">
+        <div className="topbar-inner">
+          <div className="brand"><span className="brand-dot">1С</span>Ассистент</div>
+          <nav className="nav">
+            <NavLink to="/" end>Главная</NavLink>
+            {authed && hasRole('admin') && <NavLink to="/admin">Админ</NavLink>}
+          </nav>
+          <span className="spacer" />
+          {authed && <span className="user">{username}</span>}
+          {authed
+            ? <button className="btn ghost" onClick={() => keycloak.logout({ redirectUri: window.location.origin })}>Выйти</button>
+            : <button className="btn" onClick={() => keycloak.login()}>Войти</button>}
+        </div>
       </header>
-      <Routes>
-        <Route path="/" element={<Home authed={authed} />} />
-        <Route path="/admin" element={<Admin authed={authed} />} />
-      </Routes>
-    </div>
+      <main className="container">
+        <Routes>
+          <Route path="/" element={<Home authed={authed} />} />
+          <Route path="/admin" element={<Admin authed={authed} />} />
+        </Routes>
+      </main>
+    </>
   )
 }
