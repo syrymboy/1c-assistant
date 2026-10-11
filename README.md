@@ -13,9 +13,21 @@ docker compose up --build
 |---|---|
 | http://localhost:3000 | веб-клиент |
 | http://localhost:8000/docs | Swagger backend (порт задаётся `BACKEND_PORT` в `.env`) |
-| http://localhost:8080 | Keycloak (консоль: `admin` / `admin`) |
+| http://localhost:3000/auth | Keycloak через единый вход (консоль админа — только напрямую: http://localhost:8080/auth, `admin` / `admin`) |
 
-Если порт 8000 занят, задайте в `.env` другой `BACKEND_PORT` и пересоберите (`docker compose up --build`): адрес API вшивается во фронтенд при сборке.
+## Доступ снаружи (ngrok)
+
+Фронтенд-nginx — единая точка входа: `/` — приложение, `/api` — backend, `/auth` — Keycloak (консоль и master-realm по этому пути закрыты, 403). Наружу нужен один туннель:
+
+```bash
+# в .env: PUBLIC_URL=https://<ваш-домен>.ngrok-free.dev
+docker compose up --build -d
+ngrok http 3000 --url=$PUBLIC_URL
+```
+
+Адрес `PUBLIC_URL` нужно добавить в Valid redirect URIs / Web origins клиента `assistant-web` (realm-файл читается только при первом старте) и сменить тестовые пароли. Бесплатный ngrok один раз показывает страницу-предупреждение.
+
+Если порт 8000 занят, задайте в `.env` другой `BACKEND_PORT` (меняется только прямой порт backend, фронтенд ходит через `/api`).
 
 ## Тестовые пользователи (только для локальной разработки!)
 
