@@ -12,21 +12,22 @@ export default function App() {
     initAuth().then((a) => { setAuthed(a); setReady(true) })
   }, [])
 
-  if (!ready) return <div className="container muted">Загрузка…</div>
+  if (!ready) return <div className="container note">Загрузка…</div>
 
-  const username = (keycloak.tokenParsed as { preferred_username?: string } | undefined)?.preferred_username
+  const claims = keycloak.tokenParsed as { preferred_username?: string } | undefined
+  const username = claims?.preferred_username ?? ''
 
   return (
     <>
       <header className="topbar">
         <div className="topbar-inner">
-          <div className="brand"><span className="brand-dot">1С</span>Ассистент</div>
+          <div className="brand"><span className="brand-logo">1С</span>Ассистент</div>
           <nav className="nav">
             <NavLink to="/" end>Главная</NavLink>
-            {authed && hasRole('admin') && <NavLink to="/admin">Админ</NavLink>}
+            {authed && hasRole('admin') && <NavLink to="/admin">Администрирование</NavLink>}
           </nav>
           <span className="spacer" />
-          {authed && <span className="user">{username}</span>}
+          {authed && <span className="avatar">{username.slice(0, 1).toUpperCase()}</span>}
           {authed
             ? <button className="btn ghost" onClick={() => keycloak.logout({ redirectUri: window.location.origin })}>Выйти</button>
             : <button className="btn" onClick={() => keycloak.login()}>Войти</button>}

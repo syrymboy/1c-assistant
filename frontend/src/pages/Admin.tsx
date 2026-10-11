@@ -10,12 +10,17 @@ export default function Admin({ authed }: { authed: boolean }) {
   }, [allowed])
 
   if (!allowed) {
-    return <div className="card hero"><h1>Нет доступа</h1><p className="muted">Эта страница доступна только администраторам.</p></div>
+    return (
+      <div className="panel landing">
+        <h1>Нет доступа</h1>
+        <p>Эта страница только для администраторов. Если она вам нужна, попросите выдать роль.</p>
+      </div>
+    )
   }
   return (
-    <div className="card">
-      <h1>Администрирование</h1>
-      <p className="muted">Ответ backend: <code>{pong || '…'}</code></p>
+    <div className="panel">
+      <div className="panel-head">Администрирование</div>
+      <div className="panel-body"><p className="note">Ответ backend: <code>{pong || '…'}</code></p></div>
     </div>
   )
 }
