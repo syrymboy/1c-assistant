@@ -42,6 +42,23 @@ ngrok http 3000 --url=$PUBLIC_URL
 - `GET /api/health` — проверка живости
 - `GET /api/me` — профиль (создаёт/обновляет `user_profiles`, пишет вход в `audit_log`)
 - `GET /api/admin/ping` — только роль `admin`, иначе 403
+- `GET/POST /api/chats`, `GET/DELETE /api/chats/{id}` — диалоги пользователя
+- `GET /api/sources`, `PUT /api/sources/{id}` — каталог объектов 1С, доступных роли, и выбор пользователя (демо-каталог)
+- `GET /api/billing`, `POST /api/billing/checkout|cancel|resume`, `GET /api/billing/payments/{id}` — тариф, лимит, оплата (тестовый режим)
+- `POST /api/webhooks/payments` — вебхук провайдера (подпись HMAC, заголовок `X-Signature: t=<unix>,v1=<hex>`)
+- `/api/psp/*` — симулятор платёжного провайдера
+- `POST /api/chats/{id}/messages` — вопрос; ответ приходит потоком SSE. Провайдер задаётся `LLM_PROVIDER` (`mock` по умолчанию или `anthropic` + `ANTHROPIC_API_KEY`)
+
+## Оплата (тестовый режим)
+
+Деньги не списываются. Страница оплаты принимает только тестовые карты (срок — любой будущий, CVC — любые 3 цифры):
+
+| Номер | Результат |
+|---|---|
+| `4242 4242 4242 4242` | успешно |
+| `4000 0027 6000 3184` | требуется подтверждение 3-D Secure |
+| `4000 0000 0000 0002` | отказ банка |
+| `4000 0000 0000 9995` | недостаточно средств |
 
 ## Структура
 
