@@ -70,3 +70,17 @@ frontend/                    React + Vite + TS → nginx
 
 Issuer токена проверяется по внешнему адресу (`OIDC_ISSUER`), ключи берутся по внутреннему (`OIDC_JWKS_URL`).
 Не выполняйте `docker compose down -v`: это удалит тома с данными Keycloak и приложения.
+
+## Оплата через Stripe (тестовый режим)
+
+По умолчанию платежи идут через встроенный симулятор. Чтобы использовать настоящий Stripe (только тестовые ключи, деньги не списываются):
+
+1. Зарегистрируйтесь на stripe.com, включите Test mode, возьмите `sk_test_…` в Developers → API keys.
+2. В Settings → Billing → Customer portal сохраните настройки портала (нужно один раз для кнопки «Карта и счета»).
+3. Запустите пересылку вебхуков и скопируйте выданный `whsec_…`:
+   ```bash
+   stripe listen --forward-to localhost:3000/api/webhooks/stripe
+   ```
+4. В `.env`: `PAYMENT_PROVIDER=stripe`, `STRIPE_SECRET_KEY=sk_test_…`, `STRIPE_WEBHOOK_SECRET=whsec_…`, затем `docker compose up --build -d`.
+
+Оплата: карта `4242 4242 4242 4242`, любая будущая дата, любой CVC (отказ — `4000 0000 0000 0002`, 3-D Secure — `4000 0025 0000 3155`). При ngrok вместо CLI можно добавить endpoint `PUBLIC_URL/api/webhooks/stripe` в Dashboard с событиями `invoice.paid`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted`.

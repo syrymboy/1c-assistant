@@ -254,3 +254,5 @@ code { background: var(--surface-2); padding: 2px 8px; border-radius: 6px; font-
 .pay-form .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .pay-form .primary { width: 100%; }
 @media (max-width: 720px) { .pay-card { grid-template-columns: 1fr; } .pay-summary { border-right: 0; border-bottom: 1px solid var(--border); } }
+
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 6px; }

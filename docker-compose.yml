@@ -50,6 +50,10 @@ services:
 
   backend:
     build: ./backend
+    # Публичные DNS: резолвер хоста (например, раздача с телефона) нестабилен и роняет api.stripe.com
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     environment:
       DATABASE_URL: postgresql+psycopg://app:${APP_DB_PASSWORD:-app}@app-db:5432/app
       # issuer — внешний адрес (как в токене), JWKS — внутренний адрес в сети Docker
@@ -59,7 +63,13 @@ services:
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5-5}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-4-hydrogen}
       PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-dev-webhook-secret}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-simulator}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
       INTERNAL_URL: http://localhost:8000
     ports:
       - "${BACKEND_PORT:-8000}:8000"

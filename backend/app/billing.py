@@ -38,6 +38,8 @@ def _now() -> datetime:
 
 def _renew_if_due(profile: UserProfile, sub: Subscription, db: Session) -> None:
     """Автопродление: по окончании периода списываем с сохранённой карты (в симуляторе — всегда успешно)."""
+    if sub.stripe_subscription_id:  # продлением и списаниями управляет Stripe
+        return
     now = _now()
     while sub.current_period_end <= now and not sub.cancel_at_period_end:
         plan = PLANS[sub.plan_code]

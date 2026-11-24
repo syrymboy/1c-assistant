@@ -20,6 +20,7 @@ class UserProfile(Base):
     username: Mapped[str] = mapped_column(String(255))
     email: Mapped[str | None] = mapped_column(String(255))
     full_name: Mapped[str | None] = mapped_column(String(255))
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(64), unique=True)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = _created()
 
@@ -97,6 +98,7 @@ class Subscription(Base):
     cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, server_default="false")
     card_brand: Mapped[str | None] = mapped_column(String(16))
     card_last4: Mapped[str | None] = mapped_column(String(4))
+    stripe_subscription_id: Mapped[str | None] = mapped_column(String(64), unique=True)  # пусто у подписки симулятора
     created_at: Mapped[datetime] = _created()
 
 
@@ -117,5 +119,6 @@ class Payment(Base):
     card_brand: Mapped[str | None] = mapped_column(String(16))
     card_last4: Mapped[str | None] = mapped_column(String(4))
     failure_reason: Mapped[str | None] = mapped_column(String(255))
+    external_id: Mapped[str | None] = mapped_column(String(64), unique=True)  # id счёта у провайдера — для идемпотентности вебхука
     created_at: Mapped[datetime] = _created()
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

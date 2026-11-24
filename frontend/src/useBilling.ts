@@ -7,6 +7,7 @@ export interface PaymentItem {
   card_brand: string | null; card_last4: string | null; failure_reason: string | null; created_at: string
 }
 export interface Billing {
+  provider: 'simulator' | 'stripe'; portal: boolean
   plan: Plan; period_end: string; used: number; limit: number; paid: boolean
   cancel_at_period_end: boolean; card: { brand: string | null; last4: string } | null
   plans: Plan[]; payments: PaymentItem[]

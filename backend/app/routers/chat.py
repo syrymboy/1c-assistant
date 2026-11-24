@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth import CurrentUser, get_current_user
 from app.db import SessionLocal, get_db
 from app import billing
-from app.llm import get_provider
+from app.llm import LLMError, get_provider
 from app.models import AuditLog, ChatSession, DataSource, Message, UserProfile, UserSource
 
 router = APIRouter(prefix="/api/chats")
@@ -151,7 +151,7 @@ def send_message(
             raise
         except Exception as e:  # ошибка провайдера не должна рвать соединение молча
             save()
-            yield _sse({"error": f"Не удалось получить ответ: {type(e).__name__}"})
+            yield _sse({"error": str(e) if isinstance(e, LLMError) else f"Не удалось получить ответ: {type(e).__name__}"})
             with SessionLocal() as s:
                 s.add(AuditLog(user_id=user_pk, action="llm_error", payload={"chat_id": chat_pk, "error": str(e)[:500]}))
                 s.commit()

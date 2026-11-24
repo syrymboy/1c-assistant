@@ -9,7 +9,9 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import billing
+import stripe
+
+from app import billing, stripe_billing
 from app.config import settings
 from app.db import get_db
 from app.models import AuditLog, Payment, Subscription, UserProfile
@@ -49,6 +51,8 @@ def get_billing(profile: UserProfile = Depends(_profile), db: Session = Depends(
         "plan": _plan_out(st["plan"]),
         "period_end": st["period_end"],
         "used": st["used"], "limit": st["limit"],
+        "provider": settings.payment_provider,
+        "portal": bool(stripe_billing.enabled() and sub is not None and sub.stripe_subscription_id and profile.stripe_customer_id),
         "paid": sub is not None,
         "cancel_at_period_end": bool(sub and sub.cancel_at_period_end),
         "card": {"brand": sub.card_brand, "last4": sub.card_last4} if sub and sub.card_last4 else None,
@@ -65,12 +69,36 @@ def create_checkout(body: CheckoutIn, profile: UserProfile = Depends(_profile), 
     st = billing.state(profile, db)
     if st["sub"] is not None and st["plan"].code == plan.code and not st["sub"].cancel_at_period_end:
         raise HTTPException(409, "Этот тариф уже подключён")
+    sub = st["sub"]
+    if stripe_billing.enabled() and sub is not None and sub.stripe_subscription_id and sub.plan_code == plan.code:
+        return _stripe_resume(profile, sub, db)  # тот же тариф с отменой в конце периода — просто возобновляем
+    # Другой тариф всегда оформляется на странице Stripe; прежнюю подписку Stripe-вебхук закроет после успешной оплаты
     p = Payment(id=billing.new_payment_id(), user_id=profile.id, plan_code=plan.code, kind="checkout",
                 amount=plan.price, currency=billing.CURRENCY, status="pending", psp_status="open")
     db.add(p)
     db.add(AuditLog(user_id=profile.id, action="checkout_created", payload={"payment_id": p.id, "plan": plan.code}))
+    if stripe_billing.enabled():
+        try:
+            url = stripe_billing.create_checkout(profile, plan, p.id, db)
+        except stripe.StripeError as e:
+            db.rollback()
+            raise HTTPException(502, f"Stripe: {e.user_message or 'не удалось создать оплату'}")
+        db.commit()
+        return {"payment_id": p.id, "checkout_url": url}
     db.commit()
     return {"payment_id": p.id, "checkout_url": f"/pay/{p.id}"}
+
+
+def _stripe_resume(profile: UserProfile, sub: Subscription, db: Session) -> dict:
+    try:
+        stripe_billing.set_cancel(sub.stripe_subscription_id, False)
+        stripe_billing.sync_subscription(db, profile, stripe_billing.fetch_subscription(sub.stripe_subscription_id))
+    except stripe.StripeError as e:
+        db.rollback()
+        raise HTTPException(502, f"Stripe: {e.user_message or 'не удалось возобновить подписку'}")
+    db.add(AuditLog(user_id=profile.id, action="subscription_resume", payload={"plan": sub.plan_code}))
+    db.commit()
+    return {"payment_id": None, "checkout_url": None, "changed": True}
 
 
 @router.get("/billing/payments/{payment_id}")
@@ -96,13 +124,44 @@ def _set_cancel(profile: UserProfile, db: Session, value: bool) -> dict:
     sub = st["sub"]
     if sub is None:
         raise HTTPException(409, "Нет платного тарифа")
+    if stripe_billing.enabled() and sub.stripe_subscription_id:
+        try:
+            stripe_billing.set_cancel(sub.stripe_subscription_id, value)
+        except stripe.StripeError as e:
+            raise HTTPException(502, f"Stripe: {e.user_message or 'не удалось изменить подписку'}")
     sub.cancel_at_period_end = value
     db.add(AuditLog(user_id=profile.id, action="subscription_cancel" if value else "subscription_resume", payload={"plan": sub.plan_code}))
     db.commit()
     return {"cancel_at_period_end": value, "period_end": sub.current_period_end}
 
 
-# ---------- вебхук платёжного провайдера ----------
+@router.post("/billing/portal")
+def portal(profile: UserProfile = Depends(_profile)):
+    if not stripe_billing.enabled() or not profile.stripe_customer_id:
+        raise HTTPException(409, "Портал оплаты недоступен")
+    try:
+        return {"url": stripe_billing.portal_url(profile.stripe_customer_id)}
+    except stripe.StripeError as e:
+        raise HTTPException(502, f"Stripe: {e.user_message or 'не удалось открыть портал'}")
+
+
+# ---------- вебхуки платёжных провайдеров ----------
+
+@router.post("/webhooks/stripe")
+async def stripe_webhook(request: Request, stripe_signature: str = Header(default="", alias="Stripe-Signature"),
+                         db: Session = Depends(get_db)):
+    """Stripe подписывает тело запроса (`Stripe-Signature: t=…,v1=…`); без верной подписи событие не принимается."""
+    if not stripe_billing.enabled() or not settings.stripe_webhook_secret:
+        raise HTTPException(404, "Stripe не включён")
+    body = await request.body()
+    if not stripe_billing.verify_signature(body, stripe_signature):
+        raise HTTPException(400, "Неверная подпись")
+    result = stripe_billing.handle_event(db, json.loads(body))
+    db.commit()
+    return {"ok": True, "result": result}
+
+
+# ---------- вебхук симулятора ----------
 
 def sign(secret: str, timestamp: int, body: bytes) -> str:
     return hmac.new(secret.encode(), f"{timestamp}.".encode() + body, hashlib.sha256).hexdigest()

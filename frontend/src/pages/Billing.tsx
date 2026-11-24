@@ -14,6 +14,7 @@ export default function Billing({ billing, refresh }: { billing: B | null; refre
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const paymentId = params.get('payment')
+  const canceled = params.get('canceled')
 
   // Возврат со страницы оплаты: статус приходит вебхуком, поэтому опрашиваем платёж
   useEffect(() => {
@@ -34,6 +35,10 @@ export default function Billing({ billing, refresh }: { billing: B | null; refre
     return () => { stop = true }
   }, [paymentId, refresh])
 
+  useEffect(() => {
+    if (canceled) setBanner({ kind: 'err', text: 'Оплата отменена, деньги не списаны.' })
+  }, [canceled])
+
   if (!billing) return <div className="page"><div className="column"><p className="muted">Загрузка…</p></div></div>
 
   const pct = Math.min(100, Math.round((billing.used / billing.limit) * 100))
@@ -42,11 +47,18 @@ export default function Billing({ billing, refresh }: { billing: B | null; refre
   async function choose(code: string) {
     setBusy(code); setError('')
     try {
-      const { data } = await api.post<{ checkout_url: string }>('/api/billing/checkout', { plan_code: code })
-      navigate(data.checkout_url)
+      const { data } = await api.post<{ checkout_url: string | null; changed?: boolean }>('/api/billing/checkout', { plan_code: code })
+      if (data.changed) { setBanner({ kind: 'ok', text: 'Тариф изменён.' }); await refresh() }
+      else if (data.checkout_url?.startsWith('http')) window.location.href = data.checkout_url  // Stripe Checkout
+      else if (data.checkout_url) navigate(data.checkout_url)
     } catch (e: any) {
       setError(e?.response?.data?.detail ?? 'Не удалось начать оплату')
     } finally { setBusy('') }
+  }
+  async function openPortal() {
+    setBusy('portal'); setError('')
+    try { const { data } = await api.post<{ url: string }>('/api/billing/portal'); window.location.href = data.url }
+    catch (e: any) { setError(e?.response?.data?.detail ?? 'Не удалось открыть портал оплаты'); setBusy('') }
   }
   async function toggleCancel() {
     setBusy('cancel'); setError('')
@@ -59,7 +71,11 @@ export default function Billing({ billing, refresh }: { billing: B | null; refre
       <div className="column wide">
         <header className="page-head">
           <h1>Тариф и оплата</h1>
-          <p className="notice">Тестовый режим: деньги не списываются. Для оплаты используйте тестовые карты.</p>
+          <p className="notice">
+            {billing.provider === 'stripe'
+              ? 'Тестовый режим Stripe: деньги не списываются. Карта 4242 4242 4242 4242, любая будущая дата и любой CVC.'
+              : 'Тестовый режим: деньги не списываются. Для оплаты используйте тестовые карты.'}
+          </p>
         </header>
 
         {banner && (
@@ -82,9 +98,14 @@ export default function Billing({ billing, refresh }: { billing: B | null; refre
                 : `Лимит обновится ${date(billing.period_end)}.`}
             </p>
             {billing.paid && (
-              <button className="link" onClick={toggleCancel} disabled={busy === 'cancel'}>
-                {billing.cancel_at_period_end ? 'Возобновить подписку' : 'Отменить подписку'}
-              </button>
+              <div className="row-actions">
+                <button className="link" onClick={toggleCancel} disabled={busy === 'cancel'}>
+                  {billing.cancel_at_period_end ? 'Возобновить подписку' : 'Отменить подписку'}
+                </button>
+                {billing.portal && (
+                  <button className="link" onClick={openPortal} disabled={busy === 'portal'}>Карта и счета</button>
+                )}
+              </div>
             )}
           </div>
           <div className="usage">
@@ -129,7 +150,7 @@ export default function Billing({ billing, refresh }: { billing: B | null; refre
                     {billing.payments.map((p) => (
                       <tr key={p.id}>
                         <td>{date(p.created_at)}</td>
-                        <td>{p.kind === 'renewal' ? 'Автопродление' : 'Оплата'}: «{p.plan}»</td>
+                        <td>{p.kind === 'renewal' ? 'Автопродление' : p.kind === 'change' ? 'Смена тарифа' : 'Оплата'}: «{p.plan}»</td>
                         <td>{p.card_last4 ? `${brandName(p.card_brand)} •••• ${p.card_last4}` : '—'}</td>
                         <td>{money(p.amount, p.currency)}</td>
                         <td><span className={`status ${p.status}`} title={p.failure_reason ?? undefined}>{STATUS[p.status] ?? p.status}</span></td>
