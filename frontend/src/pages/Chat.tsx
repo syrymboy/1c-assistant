@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Link } from 'react-router-dom'
-import type { Msg } from '../useChats'
+import type { Msg, TraceItem } from '../useChats'
 import type { Source } from '../useSources'
 
 const DEFAULT_SUGGESTIONS = [
@@ -32,18 +32,40 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+const TOOL_LABEL: Record<string, string> = { query_1c: 'Чтение строк', aggregate_1c: 'Подсчёт итогов', find_reference: 'Поиск в справочнике' }
+
+function Trace({ trace }: { trace: TraceItem[] }) {
+  return (
+    <details className="trace">
+      <summary>Как получен ответ · {trace.length} {trace.length === 1 ? 'запрос' : 'запроса к 1С'}</summary>
+      <ol>
+        {trace.map((t, i) => (
+          <li key={i} className={t.error ? 'bad' : ''}>
+            <b>{TOOL_LABEL[t.tool] ?? t.tool}</b>
+            {t.rows != null && !t.error && <span className="muted"> · {t.rows} {t.tool === 'aggregate_1c' ? 'групп' : 'строк'}</span>}
+            {t.request && <code>GET {t.request}</code>}
+            {t.error && <span className="err-text">{t.error}</span>}
+          </li>
+        ))}
+      </ol>
+      <p className="muted small">Только чтение: ассистент не изменяет данные в 1С.</p>
+    </details>
+  )
+}
+
 interface Props {
   name: string
   messages: Msg[]
   busy: boolean
   error: string
   limitHit: boolean
+  status: string
   sources: Source[]
   onSend: (text: string) => void
   onStop: () => void
 }
 
-export default function Chat({ name, messages, busy, error, limitHit, sources, onSend, onStop }: Props) {
+export default function Chat({ name, messages, busy, error, limitHit, status, sources, onSend, onStop }: Props) {
   const [input, setInput] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
   const areaRef = useRef<HTMLTextAreaElement>(null)
@@ -86,10 +108,11 @@ export default function Chat({ name, messages, busy, error, limitHit, sources, o
                     {m.role === 'user' ? m.content : m.content ? (
                       <>
                         <div className="md"><Markdown remarkPlugins={[remarkGfm]} components={{ a: (p) => <a {...p} target="_blank" rel="noopener noreferrer" /> }}>{m.content}</Markdown></div>
+                        {m.trace && m.trace.length > 0 && !(busy && i === messages.length - 1) && <Trace trace={m.trace} />}
                         {!(busy && i === messages.length - 1) && <div className="actions"><CopyButton text={m.content} /></div>}
                       </>
                     ) : busy && i === messages.length - 1
-                      ? <span className="typing" role="status" aria-label="Ассистент печатает"><i /><i /><i /></span>
+                      ? <span className="typing" role="status" aria-label="Ассистент печатает"><i /><i /><i />{status && <em className="status-line">{status}</em>}</span>
                       : null}
                   </div>
                 </li>

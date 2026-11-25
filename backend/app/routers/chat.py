@@ -11,6 +11,7 @@ from app.auth import CurrentUser, get_current_user
 from app.db import SessionLocal, get_db
 from app import billing
 from app.llm import LLMError, get_provider
+from app.tools import Toolbox
 from app.models import AuditLog, ChatSession, DataSource, Message, UserProfile, UserSource
 
 router = APIRouter(prefix="/api/chats")
@@ -47,7 +48,11 @@ def _chat_out(c: ChatSession) -> dict:
 
 
 def _msg_out(m: Message) -> dict:
-    return {"id": m.id, "role": m.role, "content": m.content, "generated_query": m.generated_query, "created_at": m.created_at}
+    try:
+        trace = json.loads(m.generated_query) if m.generated_query else None
+    except ValueError:
+        trace = None
+    return {"id": m.id, "role": m.role, "content": m.content, "trace": trace, "created_at": m.created_at}
 
 
 @router.get("")
@@ -113,7 +118,9 @@ def send_message(
         select(DataSource).join(UserSource, UserSource.source_id == DataSource.id)
         .where(UserSource.user_id == profile.id).order_by(DataSource.sort)
     ).all()
-    source_titles = [s.title for s in chosen if set(s.allowed_roles) & set(user.roles)]
+    allowed = [s for s in chosen if set(s.allowed_roles) & set(user.roles)]
+    source_titles = [s.title for s in allowed]
+    toolbox = Toolbox(allowed)
     text = body.content.strip()
 
     db.add(Message(session_id=chat.id, role="user", content=text))
@@ -132,18 +139,22 @@ def send_message(
         parts: list[str] = []
 
         def save() -> int | None:
-            """Сохраняет ответ (в том числе частичный, если пользователь нажал «Стоп»)."""
+            """Сохраняет ответ (в том числе частичный, если пользователь нажал «Стоп») вместе с трассой запросов к 1С."""
             text = "".join(parts).strip()
             if not text:
                 return None
             with SessionLocal() as s:
-                m = Message(session_id=chat_pk, role="assistant", content=text)
+                m = Message(session_id=chat_pk, role="assistant", content=text,
+                            generated_query=json.dumps(toolbox.trace, ensure_ascii=False, default=str) if toolbox.trace else None)
                 s.add(m)
                 s.commit()
                 return m.id
 
         try:
-            for chunk in provider.stream(history, source_titles):
+            for chunk in provider.stream(history, source_titles, toolbox):
+                if isinstance(chunk, dict):  # служебные события: «запрашиваю 1С» и результат запроса
+                    yield _sse(chunk)
+                    continue
                 parts.append(chunk)
                 yield _sse({"delta": chunk})
         except GeneratorExit:  # клиент оборвал соединение
@@ -156,6 +167,10 @@ def send_message(
                 s.add(AuditLog(user_id=user_pk, action="llm_error", payload={"chat_id": chat_pk, "error": str(e)[:500]}))
                 s.commit()
             return
+        if toolbox.trace:
+            with SessionLocal() as s:
+                s.add(AuditLog(user_id=user_pk, action="onec_query", payload={"chat_id": chat_pk, "requests": [t.get("request") for t in toolbox.trace]}))
+                s.commit()
         yield _sse({"done": True, "message_id": save()})
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"})

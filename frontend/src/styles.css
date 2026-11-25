@@ -256,3 +256,14 @@ code { background: var(--surface-2); padding: 2px 8px; border-radius: 6px; font-
 @media (max-width: 720px) { .pay-card { grid-template-columns: 1fr; } .pay-summary { border-right: 0; border-bottom: 1px solid var(--border); } }
 
 .row-actions { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 6px; }
+
+/* «Как получен ответ» */
+.trace { margin-top: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 13px; }
+.trace summary { cursor: pointer; padding: 8px 12px; color: var(--muted); }
+.trace[open] summary { border-bottom: 1px solid var(--border); }
+.trace ol { margin: 0; padding: 10px 12px 2px 30px; display: grid; gap: 8px; }
+.trace li code { display: block; margin-top: 2px; padding: 4px 8px; border-radius: 6px; background: var(--surface-2); font-size: 12px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.trace li.bad b { color: light-dark(#b42318, #ff8a80); }
+.trace .err-text { display: block; color: light-dark(#b42318, #ff8a80); }
+.trace p { margin: 8px 12px 10px; }
+.status-line { margin-left: 10px; font-style: normal; color: var(--muted); font-size: 13px; align-self: center; }

@@ -57,7 +57,7 @@ export default function App() {
         </header>
         <Routes>
           <Route path="/" element={<Sources name={name} sources={src.sources} loaded={src.loaded} error={src.error} onToggle={src.setMany} />} />
-          <Route path="/chat" element={<Chat name={name} messages={chats.messages} busy={chats.busy} error={chats.error} limitHit={chats.limitHit} sources={src.sources} onSend={async (t) => { await chats.send(t); bill.refresh() }} onStop={chats.stop} />} />
+          <Route path="/chat" element={<Chat name={name} messages={chats.messages} busy={chats.busy} error={chats.error} limitHit={chats.limitHit} status={chats.status} sources={src.sources} onSend={async (t) => { await chats.send(t); bill.refresh() }} onStop={chats.stop} />} />
           <Route path="/billing" element={<Billing billing={bill.billing} refresh={bill.refresh} />} />
           <Route path="/admin" element={<Admin />} />
         </Routes>

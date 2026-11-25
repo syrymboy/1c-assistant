@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, keycloak } from './auth'
 
 export interface ChatItem { id: number; title: string }
-export interface Msg { id?: number; role: 'user' | 'assistant'; content: string }
+export interface TraceItem { tool: string; entity?: string; request?: string; rows?: number | null; error?: string }
+export interface Msg { id?: number; role: 'user' | 'assistant'; content: string; trace?: TraceItem[] | null }
 
 export function useChats(enabled: boolean) {
   const [chats, setChats] = useState<ChatItem[]>([])
@@ -11,6 +12,7 @@ export function useChats(enabled: boolean) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [limitHit, setLimitHit] = useState(false)
+  const [status, setStatus] = useState('')
   const abortRef = useRef<AbortController | null>(null)
 
   const loadChats = useCallback(
@@ -52,7 +54,7 @@ export function useChats(enabled: boolean) {
   const send = useCallback(async (raw: string) => {
     const text = raw.trim()
     if (!text || busy) return
-    setBusy(true); setError(''); setLimitHit(false)
+    setBusy(true); setError(''); setLimitHit(false); setStatus('')
     try {
       let id = activeId
       if (id === null) {
@@ -92,7 +94,16 @@ export function useChats(enabled: boolean) {
         for (const f of frames) {
           if (!f.startsWith('data: ')) continue
           const ev = JSON.parse(f.slice(6))
-          if (ev.delta) {
+          if (ev.tool) setStatus(ev.tool.entity ? `Запрашиваю данные 1С: ${ev.tool.entity.split('_').slice(1).join(' ')}…` : 'Запрашиваю данные 1С…')
+          else if (ev.trace) {
+            setMessages((m) => {
+              const copy = m.slice()
+              const last = copy[copy.length - 1]
+              copy[copy.length - 1] = { ...last, trace: [...(last.trace ?? []), ev.trace] }
+              return copy
+            })
+          } else if (ev.delta) {
+            setStatus('')
             setMessages((m) => {
               const copy = m.slice()
               const last = copy[copy.length - 1]
@@ -106,8 +117,8 @@ export function useChats(enabled: boolean) {
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') { loadChats(); return }
       setError(`Не удалось отправить вопрос: ${e instanceof Error ? e.message : e}`)
-    } finally { abortRef.current = null; setBusy(false) }
+    } finally { abortRef.current = null; setBusy(false); setStatus('') }
   }, [activeId, busy, loadChats])
 
-  return { chats, activeId, messages, busy, error, limitHit, newChat, open, remove, rename, stop, send }
+  return { chats, activeId, messages, busy, error, limitHit, status, newChat, open, remove, rename, stop, send }
 }

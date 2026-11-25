@@ -74,6 +74,7 @@ class DataSource(Base):
     description: Mapped[str] = mapped_column(Text)
     fields: Mapped[list] = mapped_column(JSONB)
     allowed_roles: Mapped[list] = mapped_column(JSONB)
+    odata_schema: Mapped[list | None] = mapped_column(JSONB)  # [{name, type, ref?}] из $metadata
     sort: Mapped[int] = mapped_column(server_default="0")
 
 

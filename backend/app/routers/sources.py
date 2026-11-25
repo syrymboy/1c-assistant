@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.auth import CurrentUser, get_current_user
+from app import catalog, onec
+from app.auth import CurrentUser, get_current_user, require_role
 from app.db import get_db
 from app.models import DataSource, UserProfile, UserSource
 from app.routers.chat import _profile
@@ -37,6 +38,15 @@ def list_sources(
          "description": s.description, "fields": s.fields, "enabled": s.id in on}
         for s in allowed_sources(user, db)
     ]
+
+
+@router.post("/sync")
+def sync_sources(user: CurrentUser = Depends(require_role("admin")), db: Session = Depends(get_db)):
+    """Обновляет каталог из $metadata 1С (новые объекты, изменённые поля, снятые с публикации)."""
+    try:
+        return catalog.sync_catalog(db)
+    except onec.OneCError as e:
+        raise HTTPException(502, str(e))
 
 
 @router.put("/{source_id}")
